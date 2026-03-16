@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { BrainCircuit } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { BrainCircuit, Send } from "lucide-react";
+import { IncomeExpenseChart, type ChartPoint } from "./income-expense-chart";
+
+type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type Transaction = {
   id: string;
@@ -21,29 +24,52 @@ type SummaryProps = {
 
 export function DashboardTabs({
   summary,
-  transactions
+  transactions,
+  chartData = []
 }: {
   summary: SummaryProps;
   transactions: Transaction[];
+  chartData?: ChartPoint[];
 }) {
   const [tab, setTab] = useState<"overview" | "movements">("overview");
-  const [aiText, setAiText] = useState<string | null>(null);
-  const [loadingAi, setLoadingAi] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
 
   const net = summary.income - summary.expenses;
   const isNegative = net < 0;
 
-  const handleAi = async () => {
-    setLoadingAi(true);
-    setAiText("Analizando tus movimientos con Gemini...");
+  const handleSendChat = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    setChatInput("");
+    const userMsg: ChatMessage = { role: "user", content: text };
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatLoading(true);
     try {
-      const res = await fetch("/api/ai/summary", { method: "POST" });
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          history: chatMessages,
+        }),
+      });
       const json = await res.json();
-      setAiText(json.summary || "No se pudo generar el análisis.");
+      const reply = json.reply ?? "No se pudo obtener respuesta.";
+      setChatMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch {
-      setAiText("Error al generar el análisis con IA.");
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Error de conexión. Revisa tu red e intenta de nuevo." },
+      ]);
     } finally {
-      setLoadingAi(false);
+      setChatLoading(false);
     }
   };
 
@@ -118,27 +144,78 @@ export function DashboardTabs({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-200">Asesor financiero IA</h2>
-              <button
-                type="button"
-                onClick={handleAi}
-                disabled={loadingAi}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/80 px-3 py-1.5 text-[11px] font-medium text-slate-200 hover:border-slate-500 disabled:opacity-60"
-              >
-                <BrainCircuit className="h-3 w-3 text-primary" />
-                {loadingAi ? "Analizando..." : "Pedir consejo"}
-              </button>
+          <div className="flex flex-col rounded-2xl border border-slate-800/70 bg-slate-900/70 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <BrainCircuit className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-slate-200">Asesor financiero (chat)</h2>
             </div>
-            <p className="text-xs text-slate-300">
-              Gemini analiza tus ingresos y egresos recientes y te sugiere en qué gastar menos, cómo
-              equilibrar tus categorías y qué riesgos ve en tus deudas.
+            <p className="mb-3 text-[11px] text-slate-400">
+              Pregunta lo que quieras: en qué reducir gastos, cómo ahorrar, revisar categorías, etc.
             </p>
-            <div className="mt-3 rounded-xl bg-slate-950/70 p-3 text-[11px] text-slate-300 whitespace-pre-line">
-              {aiText ||
-                "Pulsa \"Pedir consejo\" y aquí aparecerá el análisis personalizado de tu situación financiera."}
+            <div className="flex min-h-[200px] flex-1 flex-col overflow-hidden rounded-xl border border-slate-800/60 bg-slate-950/60">
+              <div className="flex-1 space-y-3 overflow-y-auto p-3">
+                {chatMessages.length === 0 && (
+                  <p className="text-[11px] text-slate-500">
+                    Escribe abajo tu pregunta. Por ejemplo: &quot;¿En qué puedo reducir gastos?&quot; o &quot;¿Cómo voy este mes?&quot;
+                  </p>
+                )}
+                {chatMessages.map((m, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3 py-2 text-[12px] ${
+                        m.role === "user"
+                          ? "bg-primary/90 text-primary-foreground"
+                          : "bg-slate-800/80 text-slate-200"
+                      }`}
+                    >
+                      <p className="whitespace-pre-line">{m.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl bg-slate-800/80 px-3 py-2 text-[12px] text-slate-400">
+                      Pensando...
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+              <form
+                className="flex gap-2 border-t border-slate-800/60 p-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendChat();
+                }}
+              >
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Pregunta sobre tus finanzas..."
+                  className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-slate-600 focus:outline-none"
+                  disabled={chatLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={chatLoading || !chatInput.trim()}
+                  className="rounded-xl bg-primary px-3 py-2 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </form>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-4 md:col-span-2">
+            <h2 className="mb-3 text-sm font-semibold text-slate-200">Ingresos y gastos por fecha</h2>
+            <p className="mb-3 text-[11px] text-slate-400">
+              Evolución diaria de los últimos 30 días.
+            </p>
+            <IncomeExpenseChart data={chartData} />
           </div>
         </section>
       ) : (

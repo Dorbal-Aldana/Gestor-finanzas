@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGeminiClient } from "../../../../lib/gemini";
+import { getMistralClient } from "../../../../lib/mistral";
 import { createSupabaseServerClient } from "../../../../lib/supabase/server";
 
 export async function POST() {
@@ -24,11 +24,10 @@ export async function POST() {
   }
 
   try {
-    const client = getGeminiClient();
-    const model = client.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const mistral = getMistralClient();
+    const model = process.env.MISTRAL_MODEL || "mistral-small-latest";
 
-    const prompt = `
-Eres un asesor financiero personal para un profesional de la salud (dentista).
+    const prompt = `Eres un asesor financiero personal para un profesional de la salud (dentista).
 Te paso una lista de transacciones recientes en formato JSON. Cada transacción tiene:
 - type: "income" o "expense"
 - amount
@@ -42,15 +41,27 @@ Transacciones:
 ${JSON.stringify(data ?? [])}
 `;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const result = await mistral.chat.complete({
+      model,
+      messages: [{ role: "user", content: prompt }],
+    });
 
-    return NextResponse.json({ summary: text });
-  } catch {
+    const raw = result.choices?.[0]?.message?.content;
+    const text = typeof raw === "string"
+      ? raw.trim()
+      : Array.isArray(raw)
+        ? (raw.find((c: { type?: string; text?: string }) => c.type === "text")?.text ?? "").trim()
+        : "";
+    const summary = text || "No se pudo generar el resumen.";
+
+    return NextResponse.json({ summary });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { summary: "Hubo un error al llamar a Gemini. Revisa tu GEMINI_API_KEY." },
+      {
+        summary: `Error de Mistral: ${message}. Comprueba MISTRAL_API_KEY en .env.local (consíguela en https://console.mistral.ai).`,
+      },
       { status: 500 }
     );
   }
 }
-

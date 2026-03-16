@@ -47,7 +47,7 @@ export default function LandingPage() {
                 <Bell className="h-4 w-4 text-primary" /> Alertas de deudas y pagos fijos
               </span>
               <span className="inline-flex items-center gap-2">
-                <BrainCircuit className="h-4 w-4 text-primary" /> Insights con IA de Gemini
+                <BrainCircuit className="h-4 w-4 text-primary" /> Insights con IA (Mistral)
               </span>
             </div>
           </div>

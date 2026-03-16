@@ -1,19 +1,14 @@
 # Gestor de Finanzas Personales
 
-Aplicación web para gestión de finanzas personales tipo SaaS construida con Next.js 14, Supabase, Gemini, Lemon Squeezy/Paddle, PostHog y Tailwind UI.
+Aplicación web para gestión de finanzas personales tipo SaaS construida con Next.js 14, Supabase, Mistral AI, Lemon Squeezy/Paddle, PostHog y Tailwind UI.
 
 ## Setup (MVP funcionando con BD + Auth + SaaS base)
 
 ### 1) Base de datos (Supabase)
 
-- Ejecuta el SQL inicial en tu proyecto de Supabase:
-  - `supabase/migrations/0001_init.sql`
+En Supabase ve a **SQL Editor** → **New query** → pega el contenido de **`supabase/CREAR_TODO_EN_SUPABASE.sql`** → **Run**.
 
-Esto crea:
-- Tablas: `profiles`, `accounts`, `categories`, `subcategories`, `transactions`, `debts`, `subscriptions`
-- RLS (Row Level Security) por usuario
-- Vista: `transactions_view`
-- Trigger para crear `profiles`/`subscriptions` al registrar usuario
+Ese script crea todas las tablas (profiles, accounts, categories, transactions, etc.), políticas RLS, la vista, el trigger para nuevos usuarios y rellena perfiles/suscripciones para los usuarios que ya tengas en Auth. Después de ejecutarlo verás las tablas en **Table Editor** y podrás guardar ingresos y gastos desde la app.
 
 ### 2) Variables de entorno
 
@@ -26,7 +21,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
 
-GEMINI_API_KEY=...
+MISTRAL_API_KEY=...
 
 NEXT_PUBLIC_POSTHOG_KEY=...
 NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
@@ -52,9 +47,8 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 - Crear cuenta en `/sign-up`
 - Iniciar sesión en `/sign-in`
-- Para registrar transacciones necesitas crear al menos 1 `account` y (opcional) `category` en Supabase
 - Dashboard: `/dashboard`
-- Crear transacción: `/dashboard/transactions/new`
+- Nuevo ingreso o gasto: `/dashboard/transactions/new` (solo título, monto, tipo y moneda)
 - Facturación (base SaaS): `/dashboard/billing`
 
 ## Scripts

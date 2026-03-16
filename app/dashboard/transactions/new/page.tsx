@@ -2,18 +2,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "../../../../lib/supabase/server";
-
-const DEFAULT_CATEGORIES: { name: string; type: "income" | "expense" }[] = [
-  { name: "Clínica", type: "income" },
-  { name: "Alquileres", type: "income" },
-  { name: "Inversiones", type: "income" },
-  { name: "Otros ingresos", type: "income" },
-  { name: "Gastos fijos", type: "expense" },
-  { name: "Suministros", type: "expense" },
-  { name: "Personal", type: "expense" },
-  { name: "Servicios", type: "expense" },
-  { name: "Otros gastos", type: "expense" }
-];
+import { CategorySelector } from "../../../../components/category-selector";
 
 export default async function NewTransactionPage({
   searchParams
@@ -27,41 +16,10 @@ export default async function NewTransactionPage({
 
   const { error: errorParam, msg: errorMsg } = await searchParams;
 
-  // Asegurar al menos una cuenta "Registro personal" (así no hace falta account_id nullable)
-  const { data: existingAccounts } = await supabase.from("accounts").select("id").limit(1);
-  if (!existingAccounts?.length) {
-    await supabase.from("accounts").insert({
-      user_id: user.id,
-      name: "Registro personal",
-      type: "cash",
-      currency: "GTQ",
-      initial_balance: 0
-    });
-  }
-
-  // Asegurar categorías por defecto si no tiene ninguna
-  const { data: existingCategories } = await supabase.from("categories").select("id").limit(1);
-  if (!existingCategories?.length) {
-    await supabase.from("categories").insert(
-      DEFAULT_CATEGORIES.map((c) => ({
-        user_id: user.id,
-        name: c.name,
-        type: c.type
-      }))
-    );
-  }
-
-  const { data: accounts } = await supabase.from("accounts").select("id,name,currency").order("created_at");
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id,name,type")
-    .order("type")
-    .order("created_at");
-
   async function createTransaction(formData: FormData) {
     "use server";
-    const supabase = createSupabaseServerClient();
-    const { data: userData } = await supabase.auth.getUser();
+    const supabaseAuth = createSupabaseServerClient();
+    const { data: userData } = await supabaseAuth.auth.getUser();
     const user = userData.user;
     if (!user) redirect("/sign-in");
 
@@ -69,27 +27,10 @@ export default async function NewTransactionPage({
     const amount = Number(formData.get("amount") || 0);
     const type = String(formData.get("type") || "expense");
     const currency = String(formData.get("currency") || "GTQ");
-    const rawAccountId = String(formData.get("account_id") || "").trim();
-    const rawCategoryId = String(formData.get("category_id") || "").trim();
-    const category_id = rawCategoryId === "" ? null : rawCategoryId;
+    const category = String(formData.get("category") || "").trim();
 
     if (!title || !Number.isFinite(amount) || amount <= 0) {
       redirect("/dashboard/transactions/new?error=invalid");
-    }
-
-    // Siempre usar una cuenta: si eligió "Sin cuenta" usamos la primera (Registro personal)
-    let account_id = rawAccountId === "" ? null : rawAccountId;
-    if (!account_id) {
-      const { data: firstAccount } = await supabase
-        .from("accounts")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-      account_id = firstAccount?.id ?? null;
-    }
-
-    if (!account_id) {
-      redirect("/dashboard/transactions/new?error=save");
     }
 
     const payload = {
@@ -98,25 +39,24 @@ export default async function NewTransactionPage({
       amount,
       type,
       currency,
-      account_id,
-      datetime: new Date().toISOString()
-    } as Record<string, unknown>;
-    if (category_id != null) payload.category_id = category_id;
+      datetime: new Date().toISOString(),
+      tags: category ? [category] : []
+    };
 
-    let result = await supabase.from("transactions").insert(payload);
+    const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    // Si falla por RLS u otra política, intentar con service role (mismo user_id desde sesión)
-    if (result.error && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      const admin = createClient(
-        process.env.SUPABASE_URL,
-        process.env.SUPABASE_SERVICE_ROLE_KEY
-      );
-      result = await admin.from("transactions").insert(payload);
-    }
-
-    if (result.error) {
-      const msg = encodeURIComponent(result.error.message);
-      redirect(`/dashboard/transactions/new?error=save&msg=${msg}`);
+    if (url && serviceKey) {
+      const admin = createClient(url, serviceKey);
+      const { error } = await admin.from("transactions").insert(payload);
+      if (error) {
+        redirect(`/dashboard/transactions/new?error=save&msg=${encodeURIComponent(error.message)}`);
+      }
+    } else {
+      const { error } = await supabaseAuth.from("transactions").insert(payload);
+      if (error) {
+        redirect(`/dashboard/transactions/new?error=save&msg=${encodeURIComponent(error.message)}`);
+      }
     }
 
     revalidatePath("/dashboard");
@@ -126,8 +66,8 @@ export default async function NewTransactionPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Nueva transacción</h1>
-        <p className="text-sm text-slate-400">Crea un ingreso o gasto con fecha/hora exacta (por ahora: ahora).</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Nuevo ingreso o gasto</h1>
+        <p className="text-sm text-slate-400">Elige una etiqueta o escribe la tuya en «Otro».</p>
       </div>
 
       {errorParam === "save" && (
@@ -136,7 +76,7 @@ export default async function NewTransactionPage({
           {errorMsg ? (
             <p className="mt-1 break-all text-xs opacity-90">{decodeURIComponent(errorMsg)}</p>
           ) : (
-            <p className="mt-1">Comprueba que exista tu perfil y al menos una cuenta (si no, recarga la página e intenta de nuevo).</p>
+            <p className="mt-1">Revisa que SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY estén en .env.local.</p>
           )}
         </div>
       )}
@@ -170,58 +110,29 @@ export default async function NewTransactionPage({
             name="title"
             required
             className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm outline-none focus:border-slate-600"
-            placeholder="Ej. Pago de alquiler Casa Amatitlán"
+            placeholder="Ej. Pago alquiler, Venta consulta..."
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-xs text-slate-300">Monto</label>
-            <input
-              name="amount"
-              required
-              type="number"
-              step="0.01"
-              min="0"
-              className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm outline-none focus:border-slate-600"
-              placeholder="0.00"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-slate-300">Cuenta</label>
-            <select
-              name="account_id"
-              className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm"
-            >
-              {(accounts || []).map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({a.currency})
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-[11px] text-slate-500">
-              &quot;Registro personal&quot; sirve para anotar gastos/ingresos sin asociar un banco. Puedes crear más en Cuentas.
-            </p>
-          </div>
-        </div>
-
         <div>
-          <label className="text-xs text-slate-300">Categoría</label>
-          <select name="category_id" className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm">
-            <option value="">Sin categoría</option>
-            {(categories || []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.type})
-              </option>
-            ))}
-          </select>
+          <label className="text-xs text-slate-300">Monto</label>
+          <input
+            name="amount"
+            required
+            type="number"
+            step="0.01"
+            min="0.01"
+            className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm outline-none focus:border-slate-600"
+            placeholder="0.00"
+          />
         </div>
 
-        <button className="w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-blue-500">
+        <CategorySelector />
+
+        <button type="submit" className="w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-blue-500">
           Guardar
         </button>
       </form>
     </main>
   );
 }
-
