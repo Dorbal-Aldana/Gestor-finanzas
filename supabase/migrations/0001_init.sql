@@ -194,7 +194,7 @@ begin
 
   insert into public.subscriptions (user_id, provider, plan, status)
   values (new.id, 'lemon_squeezy', 'free', 'inactive')
-  on conflict do nothing;
+  on conflict (user_id) do nothing;
 
   return new;
 end;

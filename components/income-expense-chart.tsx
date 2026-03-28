@@ -48,7 +48,7 @@ export function IncomeExpenseChart({ data }: { data: ChartPoint[] }) {
               borderRadius: "0.75rem"
             }}
             labelStyle={{ color: "#e2e8f0" }}
-            formatter={(value: number) => [`Q ${value.toLocaleString("es-GT")}`]}
+            formatter={(value) => [`Q ${Number(value ?? 0).toLocaleString("es-GT")}`]}
             labelFormatter={(label) => `Fecha: ${label}`}
           />
           <Legend

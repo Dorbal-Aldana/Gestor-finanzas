@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "../../lib/supabase/server";
-import { PlusCircle } from "lucide-react";
+import { hasProAccess } from "../../lib/saas";
+import { CreditCard, PlusCircle, Sparkles } from "lucide-react";
 import { DashboardTabs } from "../../components/dashboard-tabs";
-import { DownloadReportButton } from "../../components/download-report-button";
 
 export default async function DashboardPage() {
   const supabase = createSupabaseServerClient();
@@ -27,9 +27,9 @@ export default async function DashboardPage() {
   // Leer de la tabla transactions (no de la vista) y traer nombre de categoría por FK
   const { data: transactionsRaw } = await supabase
     .from("transactions")
-    .select("id,title,amount,type,currency,datetime,tags,categories(name)")
+    .select("id,title,amount,type,currency,datetime,tags,notes,categories(name)")
     .order("datetime", { ascending: false })
-    .limit(10);
+    .limit(50);
 
   const transactions = (transactionsRaw || []).map((t: any) => {
     const cat = t.categories;
@@ -44,9 +44,15 @@ export default async function DashboardPage() {
       type: t.type,
       currency: t.currency,
       datetime: t.datetime,
-      category_name
+      category_name,
+      notes: t.notes ?? null
     };
   });
+
+  const categoriesForFilter = Array.from(
+    new Set((transactions as { category_name: string | null }[]).map((t) => t.category_name ?? "Sin categoría"))
+  ) as string[];
+  categoriesForFilter.sort();
 
   const monthLabel = startOfMonth.toLocaleDateString("es-GT", {
     month: "long",
@@ -82,6 +88,19 @@ export default async function DashboardPage() {
       gastos: v.gastos
     }));
 
+  const { data: debtsOpen } = await supabase
+    .from("debts")
+    .select("amount_total,amount_paid,status")
+    .in("status", ["pending", "overdue"]);
+
+  let debtsPendingTotal = 0;
+  for (const d of debtsOpen ?? []) {
+    debtsPendingTotal += Math.max(0, Number(d.amount_total) - Number(d.amount_paid));
+  }
+  const debtsPendingCount = debtsOpen?.length ?? 0;
+
+  const proUnlocked = await hasProAccess();
+
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 px-4 py-8">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -92,7 +111,20 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DownloadReportButton />
+          <Link
+            href="/dashboard/billing"
+            className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-200 hover:border-primary/50 hover:bg-slate-900"
+          >
+            <Sparkles className="h-4 w-4 text-primary" />
+            Plan Pro
+          </Link>
+          <Link
+            href="/dashboard/debts"
+            className="inline-flex items-center gap-2 rounded-full border border-amber-900/50 bg-amber-950/40 px-4 py-2 text-sm font-medium text-amber-100 hover:border-amber-700/60 hover:bg-amber-950/60"
+          >
+            <CreditCard className="h-4 w-4" />
+            Cuentas por pagar
+          </Link>
           <Link
             href="/dashboard/transactions/new"
             className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow hover:bg-blue-500"
@@ -107,6 +139,9 @@ export default async function DashboardPage() {
         summary={{ monthLabel, income, expenses }}
         transactions={(transactions as any) || []}
         chartData={chartData}
+        categoriesForFilter={categoriesForFilter}
+        debtsSummary={{ count: debtsPendingCount, pendingTotal: debtsPendingTotal }}
+        proUnlocked={proUnlocked}
       />
     </main>
   );

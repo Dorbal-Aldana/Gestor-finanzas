@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMistralClient } from "../../../../lib/mistral";
 import { createSupabaseServerClient } from "../../../../lib/supabase/server";
+import { hasProAccess } from "../../../../lib/saas";
 
 export async function POST() {
   const supabase = createSupabaseServerClient();
@@ -8,6 +9,17 @@ export async function POST() {
   const user = userData.user;
   if (!user) {
     return NextResponse.json({ summary: "No autenticado." }, { status: 401 });
+  }
+
+  if (!(await hasProAccess())) {
+    return NextResponse.json(
+      {
+        summary:
+          "El resumen con IA es del plan Pro. Consíguelo en Plan y facturación (/dashboard/billing).",
+        error: "pro_required"
+      },
+      { status: 403 }
+    );
   }
 
   const { data, error } = await supabase
@@ -50,7 +62,9 @@ ${JSON.stringify(data ?? [])}
     const text = typeof raw === "string"
       ? raw.trim()
       : Array.isArray(raw)
-        ? (raw.find((c: { type?: string; text?: string }) => c.type === "text")?.text ?? "").trim()
+        ? String(
+            (raw as { type?: string; text?: string }[]).find((c) => c.type === "text")?.text ?? ""
+          ).trim()
         : "";
     const summary = text || "No se pudo generar el resumen.";
 

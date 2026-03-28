@@ -13,6 +13,9 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 alter table public.profiles enable row level security;
+drop policy if exists "profiles_select_own" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
+drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_select_own" on public.profiles for select to authenticated using (id = auth.uid());
 create policy "profiles_update_own" on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 create policy "profiles_insert_own" on public.profiles for insert to authenticated with check (id = auth.uid());
@@ -27,6 +30,7 @@ create table if not exists public.categories (
   created_at timestamptz not null default now()
 );
 alter table public.categories enable row level security;
+drop policy if exists "categories_crud_own" on public.categories;
 create policy "categories_crud_own" on public.categories for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Subcategorías
@@ -38,6 +42,7 @@ create table if not exists public.subcategories (
   created_at timestamptz not null default now()
 );
 alter table public.subcategories enable row level security;
+drop policy if exists "subcategories_crud_own" on public.subcategories;
 create policy "subcategories_crud_own" on public.subcategories for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Cuentas
@@ -51,6 +56,7 @@ create table if not exists public.accounts (
   created_at timestamptz not null default now()
 );
 alter table public.accounts enable row level security;
+drop policy if exists "accounts_crud_own" on public.accounts;
 create policy "accounts_crud_own" on public.accounts for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Transacciones (account_id puede ser NULL)
@@ -72,6 +78,7 @@ create table if not exists public.transactions (
   created_at timestamptz not null default now()
 );
 alter table public.transactions enable row level security;
+drop policy if exists "transactions_crud_own" on public.transactions;
 create policy "transactions_crud_own" on public.transactions for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Deudas
@@ -88,7 +95,28 @@ create table if not exists public.debts (
   created_at timestamptz not null default now()
 );
 alter table public.debts enable row level security;
+drop policy if exists "debts_crud_own" on public.debts;
 create policy "debts_crud_own" on public.debts for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Ampliación: cuotas mensuales (ejecutar también si la tabla debts ya existía)
+alter table public.debts add column if not exists recurrence text not null default 'once';
+alter table public.debts add column if not exists monthly_amount numeric(14,2);
+alter table public.debts add column if not exists installments_planned int;
+alter table public.debts add column if not exists installments_done int not null default 0;
+
+create table if not exists public.debt_payments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  debt_id uuid not null references public.debts(id) on delete cascade,
+  amount numeric(14,2) not null check (amount > 0),
+  payment_date date not null default (current_date),
+  note text,
+  created_at timestamptz not null default now()
+);
+create index if not exists debt_payments_debt_id_idx on public.debt_payments(debt_id);
+alter table public.debt_payments enable row level security;
+drop policy if exists "debt_payments_crud_own" on public.debt_payments;
+create policy "debt_payments_crud_own" on public.debt_payments for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- Suscripciones SaaS
 create table if not exists public.subscriptions (
@@ -105,6 +133,7 @@ create table if not exists public.subscriptions (
 );
 create unique index if not exists subscriptions_user_id_unique on public.subscriptions(user_id);
 alter table public.subscriptions enable row level security;
+drop policy if exists "subscriptions_select_own" on public.subscriptions;
 create policy "subscriptions_select_own" on public.subscriptions for select to authenticated using (user_id = auth.uid());
 
 -- Vista para listar transacciones con nombre de categoría

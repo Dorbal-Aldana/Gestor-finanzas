@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "../../../../lib/supabase/server";
 import { CategorySelector } from "../../../../components/category-selector";
@@ -28,6 +30,8 @@ export default async function NewTransactionPage({
     const type = String(formData.get("type") || "expense");
     const currency = String(formData.get("currency") || "GTQ");
     const category = String(formData.get("category") || "").trim();
+    const notesRaw = String(formData.get("notes") || "").trim();
+    const notes = notesRaw.length > 0 ? notesRaw : null;
 
     if (!title || !Number.isFinite(amount) || amount <= 0) {
       redirect("/dashboard/transactions/new?error=invalid");
@@ -40,7 +44,8 @@ export default async function NewTransactionPage({
       type,
       currency,
       datetime: new Date().toISOString(),
-      tags: category ? [category] : []
+      tags: category ? [category] : [],
+      notes
     };
 
     const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -66,6 +71,13 @@ export default async function NewTransactionPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-8">
       <div>
+        <Link
+          href="/dashboard"
+          className="mb-4 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Volver al dashboard
+        </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Nuevo ingreso o gasto</h1>
         <p className="text-sm text-slate-400">Elige una etiqueta o escribe la tuya en «Otro».</p>
       </div>
@@ -127,11 +139,32 @@ export default async function NewTransactionPage({
           />
         </div>
 
+        <div>
+          <label className="text-xs text-slate-300">Descripción (opcional)</label>
+          <textarea
+            name="notes"
+            rows={3}
+            className="mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm outline-none focus:border-slate-600 placeholder:text-slate-600"
+            placeholder="Detalle del pago o movimiento…"
+          />
+        </div>
+
         <CategorySelector />
 
-        <button type="submit" className="w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-blue-500">
-          Guardar
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+          <Link
+            href="/dashboard"
+            className="inline-flex w-full items-center justify-center rounded-xl border border-slate-600 bg-transparent px-4 py-2 text-sm font-medium text-slate-200 hover:border-slate-500 hover:bg-slate-800/50 sm:w-auto"
+          >
+            Cancelar
+          </Link>
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-blue-500 sm:w-auto sm:min-w-[140px]"
+          >
+            Guardar
+          </button>
+        </div>
       </form>
     </main>
   );

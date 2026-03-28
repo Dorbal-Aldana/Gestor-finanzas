@@ -31,14 +31,23 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link
-                href="/dashboard"
+                href="/sign-up"
                 className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow hover:bg-blue-500"
               >
-                Empezar ahora
+                Crear cuenta gratis
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <span className="text-xs text-slate-400">Sin tarjeta en la versión demo.</span>
+              <Link
+                href="/sign-in"
+                className="text-sm font-medium text-slate-400 underline-offset-4 hover:text-slate-200 hover:underline"
+              >
+                Ya tengo cuenta
+              </Link>
             </div>
+            <p className="text-xs text-slate-500">
+              Gratis: movimientos, cuentas y deudas. <span className="text-slate-400">Pro:</span> IA y PDF (Lemon
+              Squeezy).
+            </p>
             <div className="flex flex-wrap gap-4 text-xs text-slate-400">
               <span className="inline-flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" /> Reportes por categoría y subcategoría
