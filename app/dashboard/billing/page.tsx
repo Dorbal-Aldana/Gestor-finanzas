@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { Sparkles, Check } from "lucide-react";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
-import { getSubscription, hasActiveSubscription } from "../../../lib/saas";
+import {
+  complimentaryProGranted,
+  getSubscription,
+  hasActiveSubscription
+} from "../../../lib/saas";
 import { buildLemonCheckoutUrl } from "../../../lib/lemon-checkout";
 
 export default async function BillingPage() {
@@ -12,6 +16,7 @@ export default async function BillingPage() {
   const sub = await getSubscription();
   const paidActive = await hasActiveSubscription();
   const devUnlock = process.env.SAAS_DEV_UNLOCK === "1";
+  const complimentary = complimentaryProGranted(user?.id, user?.email);
   const checkoutBase = process.env.NEXT_PUBLIC_LEMON_SQUEEZY_CHECKOUT_URL?.trim();
 
   const checkoutHref =
@@ -68,6 +73,12 @@ export default async function BillingPage() {
               <span className="text-slate-400">Próximo fin de periodo / acceso:</span> {periodEnd}
             </div>
           ) : null}
+          {complimentary ? (
+            <div className="rounded-lg border border-sky-900/50 bg-sky-950/30 px-3 py-2 text-xs text-sky-200/90">
+              Tienes acceso Pro por cortesía (SAAS_COMPLIMENTARY_USER_IDS o SAAS_COMPLIMENTARY_EMAILS). No
+              necesitas suscripción en Lemon.
+            </div>
+          ) : null}
           {devUnlock ? (
             <div className="rounded-lg border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200/90">
               SAAS_DEV_UNLOCK=1: las funciones Pro están desbloqueadas en este entorno.
@@ -96,7 +107,7 @@ export default async function BillingPage() {
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold text-slate-100">Pro</h2>
-            {paidActive || devUnlock ? (
+            {paidActive || devUnlock || complimentary ? (
               <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
                 Activo
               </span>

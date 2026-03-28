@@ -48,7 +48,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === "/sign-in" || pathname === "/sign-up")) {
+  // Con sesión: iniciar sesión no tiene sentido → dashboard. Registro sí debe abrirse (p. ej. otra cuenta).
+  if (user && pathname.startsWith("/sign-in")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
