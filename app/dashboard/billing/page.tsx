@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Script from "next/script";
 import { Sparkles, Check } from "lucide-react";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
 import {
@@ -39,6 +40,7 @@ export default async function BillingPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-8">
+      <Script src="https://assets.lemonsqueezy.com/lemon.js" strategy="afterInteractive" />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Plan y facturación</h1>
@@ -138,9 +140,7 @@ export default async function BillingPage() {
             {checkoutHref ? (
               <a
                 href={checkoutHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow hover:bg-blue-500"
+                className="lemonsqueezy-button inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow hover:bg-blue-500"
               >
                 {paidActive ? "Gestionar pago (checkout Lemon)" : "Pasarse a Pro — Pagar con Lemon"}
               </a>

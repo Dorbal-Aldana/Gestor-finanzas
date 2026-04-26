@@ -9,6 +9,8 @@ export function buildLemonCheckoutUrl(params: {
   plan?: string;
 }): string {
   const u = new URL(params.checkoutBaseUrl.trim());
+  // Fuerza checkout embebido en modal de Lemon para no salir del sitio.
+  u.searchParams.set("embed", "1");
   const email = params.email?.trim();
   if (email) {
     u.searchParams.set("checkout[email]", email);
