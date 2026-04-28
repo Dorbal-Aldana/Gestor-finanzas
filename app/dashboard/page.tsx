@@ -19,10 +19,19 @@ export default async function DashboardPage() {
     .gte("datetime", startOfMonth.toISOString())
     .lte("datetime", endOfMonth.toISOString());
 
+  const { data: monthDebtPayments } = await supabase
+    .from("debt_payments")
+    .select("amount")
+    .gte("payment_date", startOfMonth.toISOString().slice(0, 10))
+    .lte("payment_date", endOfMonth.toISOString().slice(0, 10));
+
   const income =
     monthTx?.filter((t) => t.type === "income").reduce((acc, t) => acc + Number(t.amount), 0) ?? 0;
-  const expenses =
+  const expensesFromTransactions =
     monthTx?.filter((t) => t.type === "expense").reduce((acc, t) => acc + Number(t.amount), 0) ?? 0;
+  const expensesFromDebtPayments =
+    monthDebtPayments?.reduce((acc, p) => acc + Number(p.amount), 0) ?? 0;
+  const expenses = expensesFromTransactions + expensesFromDebtPayments;
 
   // Leer de la tabla transactions (no de la vista) y traer nombre de categoría por FK
   const { data: transactionsRaw } = await supabase
@@ -68,6 +77,12 @@ export default async function DashboardPage() {
     .gte("datetime", chartStart.toISOString())
     .lte("datetime", endOfMonth.toISOString());
 
+  const { data: chartDebtPayments } = await supabase
+    .from("debt_payments")
+    .select("amount,payment_date")
+    .gte("payment_date", chartStart.toISOString().slice(0, 10))
+    .lte("payment_date", endOfMonth.toISOString().slice(0, 10));
+
   const byDate: Record<string, { ingresos: number; gastos: number }> = {};
   const oneDay = 24 * 60 * 60 * 1000;
   for (let d = new Date(chartStart); d <= now; d.setTime(d.getTime() + oneDay)) {
@@ -79,6 +94,11 @@ export default async function DashboardPage() {
     if (!byDate[key]) byDate[key] = { ingresos: 0, gastos: 0 };
     if (t.type === "income") byDate[key].ingresos += Number(t.amount);
     else byDate[key].gastos += Number(t.amount);
+  });
+  (chartDebtPayments || []).forEach((p: { amount: number; payment_date: string }) => {
+    const key = p.payment_date ? p.payment_date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    if (!byDate[key]) byDate[key] = { ingresos: 0, gastos: 0 };
+    byDate[key].gastos += Number(p.amount);
   });
   const chartData = Object.entries(byDate)
     .sort(([a], [b]) => a.localeCompare(b))
