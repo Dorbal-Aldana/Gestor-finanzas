@@ -9,7 +9,8 @@ import { createServerClient } from "@supabase/ssr";
 export async function POST(request: NextRequest) {
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL?.trim() || new URL(request.url).origin;
-  const response = NextResponse.redirect(new URL("/", baseUrl));
+  // Use 303 after POST so browser follows with GET "/" (not POST "/").
+  const response = NextResponse.redirect(new URL("/", baseUrl), 303);
 
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
