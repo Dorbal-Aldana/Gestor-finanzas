@@ -8,11 +8,17 @@ import {
   hasActiveSubscription
 } from "../../../lib/saas";
 import { buildLemonCheckoutUrl } from "../../../lib/lemon-checkout";
+import { cancelProSubscription } from "./actions";
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams
+}: {
+  searchParams: Promise<{ error?: string; msg?: string; success?: string }>;
+}) {
   const supabase = createSupabaseServerClient();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
+  const params = await searchParams;
 
   const sub = await getSubscription();
   const paidActive = await hasActiveSubscription();
@@ -55,6 +61,33 @@ export default async function BillingPage() {
           ← Dashboard
         </Link>
       </div>
+
+      {params.success === "cancel_requested" ? (
+        <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
+          Se solicitó la cancelación de Pro en Lemon Squeezy. El estado se actualizará al llegar el webhook.
+        </div>
+      ) : null}
+      {params.success === "already_canceled" ? (
+        <div className="rounded-xl border border-slate-800/80 bg-slate-900/70 px-4 py-3 text-sm text-slate-200">
+          Tu suscripción ya estaba cancelada o inactiva.
+        </div>
+      ) : null}
+      {params.error === "cancel_missing_api_key" ? (
+        <div className="rounded-xl border border-amber-900/60 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
+          Falta configurar <code className="rounded bg-slate-950/80 px-1">LEMON_SQUEEZY_API_KEY</code> en el
+          servidor para cancelar desde la app.
+        </div>
+      ) : null}
+      {params.error === "cancel_missing_subscription" ? (
+        <div className="rounded-xl border border-amber-900/60 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
+          No se encontró una suscripción activa de Lemon Squeezy para este usuario.
+        </div>
+      ) : null}
+      {params.error === "cancel_failed" ? (
+        <div className="rounded-xl border border-rose-900/60 bg-rose-950/40 px-4 py-3 text-sm text-rose-200">
+          No se pudo cancelar. {params.msg ? decodeURIComponent(params.msg) : "Intenta de nuevo en unos minutos."}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 p-5 text-sm text-slate-200">
         <div className="flex flex-col gap-2">
@@ -159,6 +192,16 @@ export default async function BillingPage() {
                 Checkout no configurado
               </button>
             )}
+            {paidActive && !devUnlock && !complimentary ? (
+              <form action={cancelProSubscription}>
+                <button
+                  type="submit"
+                  className="inline-flex w-full items-center justify-center rounded-xl border border-rose-800/70 bg-rose-950/30 px-4 py-2.5 text-sm font-semibold text-rose-200 hover:bg-rose-950/50"
+                >
+                  Cancelar Plan Pro
+                </button>
+              </form>
+            ) : null}
           </div>
         </div>
       </div>
