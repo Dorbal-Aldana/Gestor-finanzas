@@ -64,7 +64,7 @@ export default async function BillingPage({
 
       {params.success === "cancel_requested" ? (
         <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
-          Se solicitó la cancelación de Pro en Lemon Squeezy. El estado se actualizará al llegar el webhook.
+          Se solicitó la cancelación de Pro en Lemon Squeezy. El estado se actualizará al llegar el fin de periodo actual.
         </div>
       ) : null}
       {params.success === "already_canceled" ? (
@@ -181,7 +181,7 @@ export default async function BillingPage({
                 href={checkoutHref}
                 className="lemonsqueezy-button inline-flex w-full items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow hover:bg-blue-500"
               >
-                {paidActive ? "Gestionar pago (checkout Lemon)" : "Pasarse a Pro — Pagar con Lemon"}
+                {paidActive ? "Gestionar pago" : "Pasarse a Pro — Pagar con Lemon"}
               </a>
             ) : (
               <button
