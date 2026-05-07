@@ -17,8 +17,8 @@ export function SignInForm({ redirectTo }: { redirectTo: string }) {
     setError(null);
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError(error.message);
       return;
     }
@@ -79,4 +79,3 @@ export function SignInForm({ redirectTo }: { redirectTo: string }) {
     </main>
   );
 }
-

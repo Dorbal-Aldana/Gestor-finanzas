@@ -188,11 +188,12 @@ export function DashboardTabs({
     if (!deletingId) return;
     setIsDeleting(true);
     const { error } = await supabase.from("transactions").delete().eq("id", deletingId);
-    setIsDeleting(false);
     if (error) {
+      setIsDeleting(false);
       alert("Error al eliminar el movimiento: " + error.message);
     } else {
       setDeletingId(null);
+      setIsDeleting(false);
       router.refresh();
     }
   };
@@ -204,7 +205,7 @@ export function DashboardTabs({
       alert("Error al cerrar sesión: " + error.message);
       setLogoutLoading(false);
     } else {
-      router.push("/sign-in"); // Redirige a la página de inicio de sesión
+      router.push("/");
     }
   };
 
@@ -242,9 +243,16 @@ export function DashboardTabs({
         <button
           onClick={handleLogout}
           disabled={logoutLoading}
-          className="rounded-full bg-slate-800/50 px-3 py-1 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 rounded-full bg-slate-800/50 px-3 py-1 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {logoutLoading ? "Cerrando sesión..." : "Cerrar sesión"}
+          {logoutLoading ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Cerrando...</span>
+            </>
+          ) : (
+            "Cerrar sesión"
+          )}
         </button>
       </div>
 
