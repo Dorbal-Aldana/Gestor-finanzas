@@ -153,13 +153,6 @@ export default async function BillingPage() {
                 Checkout no configurado
               </button>
             )}
-            <p className="text-[11px] leading-relaxed text-slate-500">
-              Tras pagar, Lemon envía un webhook a{" "}
-              <code className="rounded bg-slate-950/80 px-1">/api/webhooks/lemon</code> y se actualiza tu fila en{" "}
-              <code className="rounded bg-slate-950/80 px-1">subscriptions</code>. Usa{" "}
-              <code className="rounded bg-slate-950/80 px-1">checkout[custom][user_id]</code> (ya incluido en el
-              enlace) para vincular la compra a tu cuenta.
-            </p>
           </div>
         </div>
       </div>
