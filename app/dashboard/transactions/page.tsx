@@ -1,10 +1,10 @@
 "use client"; // Convertimos a client component para manejar el estado del formulario fácilmente
 
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useFormStatus } from "react-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../../lib/supabase/client";
 import { updateTransaction } from "./actions";
 
@@ -22,11 +22,11 @@ function SubmitButton() {
   );
 }
 
-export default function EditTransactionPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ id?: string }>;
-}) {
+function EditForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
+
   const [transaction, setTransaction] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,14 +34,13 @@ export default function EditTransactionPage({
 
   useEffect(() => {
     async function loadData() {
-      const params = await searchParams;
-      if (!params.id) {
-        window.location.href = "/dashboard";
+      if (!id) {
+        router.replace("/dashboard");
         return;
       }
 
       const [txRes, catRes] = await Promise.all([
-        supabase.from("transactions").select("*").eq("id", params.id).single(),
+        supabase.from("transactions").select("*").eq("id", id).single(),
         supabase.from("categories").select("id, name, type")
       ]);
 
@@ -50,7 +49,7 @@ export default function EditTransactionPage({
       setLoading(false);
     }
     loadData();
-  }, [searchParams, supabase]);
+  }, [id, supabase, router]);
 
   if (loading) {
     return (
@@ -162,5 +161,17 @@ export default function EditTransactionPage({
         </form>
       </div>
     </main>
+  );
+}
+
+export default function EditTransactionPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-slate-950">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <EditForm />
+    </Suspense>
   );
 }

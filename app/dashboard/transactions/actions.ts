@@ -39,6 +39,6 @@ export async function updateTransaction(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
+  revalidatePath("/dashboard", "layout");
+  redirect("/dashboard?tab=movements");
 }
