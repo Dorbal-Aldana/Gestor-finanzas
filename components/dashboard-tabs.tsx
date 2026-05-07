@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect, useCallback } from "react";
-import { BrainCircuit, CreditCard, FileDown, Send } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { BrainCircuit, CreditCard, FileDown, Send, Trash2, Pencil } from "lucide-react";
 import { IncomeExpenseChart, type ChartPoint } from "./income-expense-chart";
+import { createSupabaseBrowserClient } from "../lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -45,6 +47,11 @@ export function DashboardTabs({
   proUnlocked?: boolean;
 }) {
   const [tab, setTab] = useState<"overview" | "movements" | "report">("overview");
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const router = useRouter();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -172,6 +179,32 @@ export function DashboardTabs({
     }
   };
 
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingId) return;
+    const { error } = await supabase.from("transactions").delete().eq("id", deletingId);
+    if (error) {
+      alert("Error al eliminar el movimiento: " + error.message);
+    } else {
+      setDeletingId(null);
+      router.refresh();
+    }
+  };
+
+  const handleLogout = async () => {
+    setLogoutLoading(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      alert("Error al cerrar sesión: " + error.message);
+      setLogoutLoading(false);
+    } else {
+      router.push("/sign-in"); // Redirige a la página de inicio de sesión
+    }
+  };
+
   return (
     <div className="mt-4">
       <div className="inline-flex rounded-full border border-slate-800 bg-slate-950/70 p-1 text-xs">
@@ -198,6 +231,17 @@ export function DashboardTabs({
           }`}
         >
           Reporte
+        </button>
+      </div>
+
+      {/* Botón de Cerrar Sesión */}
+      <div className="absolute top-4 right-4">
+        <button
+          onClick={handleLogout}
+          disabled={logoutLoading}
+          className="rounded-full bg-slate-800/50 px-3 py-1 text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {logoutLoading ? "Cerrando sesión..." : "Cerrar sesión"}
         </button>
       </div>
 
@@ -501,9 +545,9 @@ export function DashboardTabs({
               {transactions.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between rounded-xl border border-slate-800/60 bg-slate-950/60 px-3 py-2"
+                  className="group flex items-center justify-between gap-4 rounded-xl border border-slate-800/60 bg-slate-950/60 px-3 py-2 hover:border-slate-700 transition-colors"
                 >
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-100">{t.title}</p>
                     <p className="text-[11px] text-slate-400">
                       {t.category_name || "Sin categoría"} ·{" "}
@@ -513,21 +557,69 @@ export function DashboardTabs({
                       <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">{t.notes}</p>
                     ) : null}
                   </div>
-                  <p
-                    className={`text-xs font-semibold ${
-                      t.type === "income" ? "text-emerald-400" : "text-rose-400"
-                    }`}
-                  >
-                    {t.type === "income" ? "+" : "-"} {t.currency || "Q"}{" "}
-                    {Number(t.amount).toLocaleString("es-GT")}
-                  </p>
+                  <div className="flex items-center gap-4">
+                    <p
+                      className={`text-xs font-semibold whitespace-nowrap ${
+                        t.type === "income" ? "text-emerald-400" : "text-rose-400"
+                      }`}
+                    >
+                      {t.type === "income" ? "+" : "-"} {t.currency || "Q"}{" "}
+                      {Number(t.amount).toLocaleString("es-GT")}
+                    </p>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link
+                        href={`/dashboard/transactions?id=${t.id}`}
+                        className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors"
+                        title="Eliminar"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </section>
       )}
+
+      {/* Modal de confirmación de eliminación */}
+      {deletingId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-500 mb-4">
+                <Trash2 className="h-6 w-6" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-100">¿Eliminar movimiento?</h3>
+              <p className="mt-2 text-sm text-slate-400">
+                Esta acción es permanente y afectará tus balances actuales. ¿Deseas continuar?
+              </p>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setDeletingId(null)}
+                className="flex-1 rounded-xl border border-slate-800 bg-slate-800/50 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 shadow-lg shadow-rose-900/20 transition-all active:scale-95"
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
