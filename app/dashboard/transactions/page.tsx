@@ -1,26 +1,64 @@
+"use client"; // Convertimos a client component para manejar el estado del formulario fácilmente
+
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { createSupabaseServerClient } from "../../../lib/supabase/server";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { useEffect, useState } from "react";
+import { createSupabaseBrowserClient } from "../../../lib/supabase/client";
 import { updateTransaction } from "./actions";
 
-export default async function EditTransactionPage({
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-blue-500 transition-colors disabled:opacity-70"
+    >
+      {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+      {pending ? "Guardando cambios..." : "Guardar cambios"}
+    </button>
+  );
+}
+
+export default function EditTransactionPage({
   searchParams,
 }: {
-  searchParams: { id?: string };
+  searchParams: Promise<{ id?: string }>;
 }) {
-  const id = searchParams.id;
-  if (!id) redirect("/dashboard");
+  const [transaction, setTransaction] = useState<any>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = createSupabaseBrowserClient();
 
-  const supabase = createSupabaseServerClient();
+  useEffect(() => {
+    async function loadData() {
+      const params = await searchParams;
+      if (!params.id) {
+        window.location.href = "/dashboard";
+        return;
+      }
 
-  const [txRes, catRes] = await Promise.all([
-    supabase.from("transactions").select("*").eq("id", id).single(),
-    supabase.from("categories").select("id, name, type")
-  ]);
+      const [txRes, catRes] = await Promise.all([
+        supabase.from("transactions").select("*").eq("id", params.id).single(),
+        supabase.from("categories").select("id, name, type")
+      ]);
 
-  const transaction = txRes.data;
-  const categories = catRes.data || [];
+      setTransaction(txRes.data);
+      setCategories(catRes.data || []);
+      setLoading(false);
+    }
+    loadData();
+  }, [searchParams, supabase]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!transaction) {
     return (
@@ -120,12 +158,7 @@ export default async function EditTransactionPage({
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:bg-blue-500 transition-colors"
-          >
-            Guardar cambios
-          </button>
+          <SubmitButton />
         </form>
       </div>
     </main>

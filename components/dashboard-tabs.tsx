@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { BrainCircuit, CreditCard, FileDown, Send, Trash2, Pencil } from "lucide-react";
+import { BrainCircuit, CreditCard, FileDown, Send, Trash2, Pencil, Loader2 } from "lucide-react";
 import { IncomeExpenseChart, type ChartPoint } from "./income-expense-chart";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -48,6 +48,7 @@ export function DashboardTabs({
 }) {
   const [tab, setTab] = useState<"overview" | "movements" | "report">("overview");
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -185,7 +186,9 @@ export function DashboardTabs({
 
   const confirmDelete = async () => {
     if (!deletingId) return;
+    setIsDeleting(true);
     const { error } = await supabase.from("transactions").delete().eq("id", deletingId);
+    setIsDeleting(false);
     if (error) {
       alert("Error al eliminar el movimiento: " + error.message);
     } else {
@@ -612,9 +615,11 @@ export function DashboardTabs({
               </button>
               <button
                 onClick={confirmDelete}
-                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 shadow-lg shadow-rose-900/20 transition-all active:scale-95"
+                disabled={isDeleting}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 shadow-lg disabled:opacity-70 transition-all active:scale-95"
               >
-                Eliminar
+                {isDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isDeleting ? "Eliminando..." : "Eliminar"}
               </button>
             </div>
           </div>

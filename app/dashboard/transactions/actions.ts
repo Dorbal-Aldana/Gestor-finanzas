@@ -9,7 +9,13 @@ export async function updateTransaction(formData: FormData) {
   
   const id = formData.get("id") as string;
   const title = formData.get("title") as string;
-  const amount = parseFloat(formData.get("amount") as string);
+  const rawAmount = formData.get("amount") as string;
+  const amount = parseFloat(rawAmount);
+
+  if (isNaN(amount)) {
+    throw new Error("El monto debe ser un número válido");
+  }
+
   const type = formData.get("type") as "income" | "expense";
   const currency = formData.get("currency") as string;
   const datetime = formData.get("datetime") as string;
