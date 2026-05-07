@@ -200,12 +200,26 @@ export function DashboardTabs({
 
   const handleLogout = async () => {
     setLogoutLoading(true);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      alert("Error al cerrar sesión: " + error.message);
+    try {
+      const response = await fetch("/api/auth/sign-out", {
+        method: "POST",
+        headers: { "Accept": "application/json" }
+      });
+
+      if (response.status === 200) {
+        // Status 200: Éxito total
+        router.push("/");
+        router.refresh();
+      } else if (response.status >= 400 && response.status < 500) {
+        alert(`Error ${response.status}: Credenciales inválidas o error de cliente.`);
+        setLogoutLoading(false);
+      } else {
+        alert(`Error ${response.status}: El servidor falló al cerrar la sesión.`);
+        setLogoutLoading(false);
+      }
+    } catch (e) {
+      alert("Error 500: No hay conexión con el servidor de autenticación.");
       setLogoutLoading(false);
-    } else {
-      router.push("/");
     }
   };
 
